@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """
-PROTEUS BLE Gateway - Improved Implementation
+PROTEUS BLE Gateway - Cross-Platform Implementation
+
+Supports: Windows, macOS, Linux
 
 Features:
+- Cross-platform BLE support (auto-detects address format)
 - Reconnection with exponential backoff
 - Connection health monitoring
 - Data buffering during disconnects
 - Dual broker support (NATS + MQTT over WebSocket/TLS)
+- Anomaly detection with learn/monitor modes
 - Configuration via environment variables
 - Graceful shutdown
 - Structured logging
@@ -17,6 +21,7 @@ import json
 import logging
 import math
 import os
+import platform
 import signal
 import struct
 import sys
@@ -27,6 +32,20 @@ from typing import Optional, Dict, Any
 
 from bleak import BleakClient, BleakScanner
 from bleak.exc import BleakError
+
+# =============================================================================
+# Platform Detection
+# =============================================================================
+
+PLATFORM = platform.system()  # 'Darwin' (macOS), 'Windows', 'Linux'
+
+# Default device addresses per platform
+# macOS uses UUID format, Windows/Linux use MAC address format
+DEFAULT_ADDRESSES = {
+    "Darwin": "2402245D-06F8-8C06-6450-9C102D4D7CE6",  # macOS UUID
+    "Windows": "",  # User must scan to find MAC address
+    "Linux": "",    # User must scan to find MAC address
+}
 
 # Optional imports
 try:
@@ -51,7 +70,11 @@ CONFIG = {
     # Device - search for PROTEUS or cingoz (local name varies)
     "device_name": os.getenv("PROTEUS_DEVICE", "PROTEUS"),
     "device_names": ["PROTEUS", "cingoz"],  # Multiple names to search for
-    "device_address": os.getenv("PROTEUS_ADDRESS", "2402245D-06F8-8C06-6450-9C102D4D7CE6"),
+    # Device address: Use env var, or platform-specific default
+    # macOS: UUID format (e.g., "2402245D-06F8-8C06-6450-9C102D4D7CE6")
+    # Windows/Linux: MAC format (e.g., "AA:BB:CC:DD:EE:FF")
+    "device_address": os.getenv("PROTEUS_ADDRESS", DEFAULT_ADDRESSES.get(PLATFORM, "")),
+    "auto_scan": os.getenv("PROTEUS_AUTO_SCAN", "true").lower() == "true",  # Auto-scan if address empty
     "reconnect_max_delay": int(os.getenv("RECONNECT_MAX_DELAY", "120")),
     "buffer_size": int(os.getenv("BUFFER_SIZE", "1000")),
     "health_check_interval": int(os.getenv("HEALTH_CHECK_INTERVAL", "5")),
@@ -1145,7 +1168,14 @@ class ProteusGateway:
         search_names = CONFIG.get("device_names", [CONFIG["device_name"]])
         known_address = CONFIG.get("device_address", "").upper()
 
-        logger.info(f"Scanning for device: {search_names} or address {known_address[:12]}...")
+        # Platform-specific address format hint
+        addr_format = "UUID" if PLATFORM == "Darwin" else "MAC"
+        logger.info(f"Platform: {PLATFORM} (uses {addr_format} address format)")
+
+        if known_address:
+            logger.info(f"Scanning for device: {search_names} or address {known_address[:15]}...")
+        else:
+            logger.info(f"Scanning for device by name: {search_names} (no address configured)")
 
         try:
             devices = await BleakScanner.discover(timeout=10.0)
@@ -1165,9 +1195,14 @@ class ProteusGateway:
                     if search_name.lower() in device_name.lower():
                         self.device = device
                         logger.info(f"Found device: {device.name} ({device.address})")
+                        # Save discovered address for next time (useful on Windows/Linux)
+                        if not known_address:
+                            logger.info(f"TIP: Set PROTEUS_ADDRESS={device.address} to skip scanning next time")
                         return True
 
-            logger.warning(f"Device not found. Searched for names={search_names}, address={known_address[:12]}...")
+            logger.warning(f"Device not found. Searched for names={search_names}")
+            if not known_address:
+                logger.warning(f"No address configured. Ensure PROTEUS is powered on and discoverable.")
             return False
 
         except BleakError as e:
@@ -1944,31 +1979,88 @@ class ProteusGateway:
 # Entry Point
 # =============================================================================
 
+async def scan_devices():
+    """Scan and list all BLE devices (useful for finding PROTEUS address)."""
+    print("=" * 60)
+    print("PROTEUS BLE Device Scanner")
+    print("=" * 60)
+    print(f"Platform: {PLATFORM}")
+    addr_format = "UUID" if PLATFORM == "Darwin" else "MAC (AA:BB:CC:DD:EE:FF)"
+    print(f"Address format: {addr_format}")
+    print("-" * 60)
+    print("Scanning for BLE devices (10 seconds)...")
+
+    devices = await BleakScanner.discover(timeout=10.0)
+
+    proteus_found = []
+    other_devices = []
+
+    for d in devices:
+        name = d.name or "Unknown"
+        if "PROTEUS" in name.upper() or "CINGOZ" in name.upper():
+            proteus_found.append(d)
+        elif d.name:
+            other_devices.append(d)
+
+    print("-" * 60)
+
+    if proteus_found:
+        print("\n✓ PROTEUS DEVICES FOUND:")
+        for d in proteus_found:
+            print(f"  Name:    {d.name}")
+            print(f"  Address: {d.address}")
+            print(f"\n  Use: python proteus_gateway.py --address {d.address}")
+            print()
+    else:
+        print("\n✗ No PROTEUS devices found.")
+        print("  Make sure PROTEUS is powered on and not connected elsewhere.")
+
+    if other_devices:
+        print(f"\nOther BLE devices ({len(other_devices)} found):")
+        for d in sorted(other_devices, key=lambda x: x.name)[:15]:
+            print(f"  - {d.name} [{d.address}]")
+
+    print("-" * 60)
+
+
 def main():
     """Entry point."""
     global anomaly_detector
 
     import argparse
     parser = argparse.ArgumentParser(
-        description="PROTEUS BLE Gateway with Anomaly Detection",
+        description="PROTEUS BLE Gateway - Cross-Platform (Windows, macOS, Linux)",
         formatter_class=argparse.RawDescriptionHelpFormatter,
-        epilog="""
-Anomaly Detection Modes:
-  --mode learn     Collect baseline data from healthy machine (run 1-2 weeks)
-  --mode monitor   Detect anomalies based on learned baseline
-  --mode off       Disable anomaly detection (default)
+        epilog=f"""
+Platform: {PLATFORM}
+Address format: {'UUID' if PLATFORM == 'Darwin' else 'MAC (AA:BB:CC:DD:EE:FF)'}
+
+Quick Start:
+  python proteus_gateway.py --scan                    # Find your PROTEUS address
+  python proteus_gateway.py --address YOUR_ADDRESS   # Connect to specific device
+
+Anomaly Detection:
+  python proteus_gateway.py --mode learn              # Collect baseline (1-2 weeks)
+  python proteus_gateway.py --mode monitor            # Detect anomalies
 
 Examples:
-  # Step 1: Learn baseline from healthy machine
-  python proteus_gateway.py --mode learn --baseline baseline.json
+  # Windows/Linux: First find your device
+  python proteus_gateway.py --scan
 
-  # Step 2: Monitor for anomalies (after baseline is learned)
-  python proteus_gateway.py --mode monitor --baseline baseline.json
+  # Then connect using the discovered address
+  python proteus_gateway.py --address AA:BB:CC:DD:EE:FF --mode learn
 
-  # Run with dashboard
+  # macOS: Usually auto-detects
+  python proteus_gateway.py --mode learn
+
+  # With dashboard
   python proteus_gateway.py --mode monitor --dashboard
         """
     )
+    parser.add_argument('--scan', action='store_true',
+                        help='Scan for BLE devices and exit (use to find PROTEUS address)')
+    parser.add_argument('--address', type=str, default=None,
+                        help='Device address (MAC for Windows/Linux, UUID for macOS)')
     parser.add_argument('--dashboard', action='store_true', help='Start local dashboard')
     parser.add_argument('--port', type=int, default=8080, help='Dashboard port (default: 8080)')
     parser.add_argument('--mode', choices=['learn', 'monitor', 'off'], default='off',
@@ -1976,6 +2068,16 @@ Examples:
     parser.add_argument('--baseline', type=str, default='baseline.json',
                         help='Baseline file path (default: baseline.json)')
     args = parser.parse_args()
+
+    # Scan-only mode
+    if args.scan:
+        asyncio.run(scan_devices())
+        return
+
+    # Override device address if provided
+    if args.address:
+        CONFIG["device_address"] = args.address
+        logger.info(f"Using provided address: {args.address}")
 
     # Initialize anomaly detector if enabled
     if args.mode != 'off':
