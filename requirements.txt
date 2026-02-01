@@ -2,6 +2,7 @@
 
 # Core - Required
 bleak>=0.21.0
+python-dotenv>=1.0.0
 
 # MQTT over WebSocket/TLS - Required for default configuration
 paho-mqtt>=2.0.0

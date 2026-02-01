@@ -30,8 +30,12 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 
+from dotenv import load_dotenv
 from bleak import BleakClient, BleakScanner
 from bleak.exc import BleakError
+
+# Load environment variables from .env file (if exists)
+load_dotenv()
 
 # =============================================================================
 # Platform Detection
