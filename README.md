@@ -43,7 +43,24 @@ venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Find Your PROTEUS Device
+### 2. Configure Environment
+
+Create a `.env` file with your MQTT credentials:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your values:
+```bash
+MQTT_HOST=your-mqtt-host
+MQTT_PORT=1883
+MQTT_USER=your-device-access-token
+```
+
+> **Note:** The `.env` file is gitignored and won't be committed.
+
+### 3. Find Your PROTEUS Device
 
 ```bash
 # Scan for BLE devices
@@ -58,7 +75,7 @@ Output:
            2402245D-06F8-...   (macOS)
 ```
 
-### 3. Run Gateway
+### 4. Run Gateway
 
 **macOS** (usually auto-detects):
 ```bash
@@ -219,20 +236,30 @@ proteus-gateway/
 
 ## Configuration
 
-Environment variables (set in `.env` or shell):
+Create a `.env` file (auto-loaded at startup):
 
 ```bash
+cp .env.example .env
+```
+
+**Required settings:**
+```bash
+MQTT_HOST=your-mqtt-host        # MQTT broker hostname/IP
+MQTT_USER=your-device-token     # ThingsBoard device access token
+```
+
+**Optional settings:**
+```bash
 # Device
-PROTEUS_DEVICE=PROTEUS
-PROTEUS_ADDRESS=2402245D-06F8-8C06-6450-9C102D4D7CE6
+PROTEUS_DEVICE=PROTEUS          # BLE device name to search for
+PROTEUS_ADDRESS=                # Specific device address (auto-scans if empty)
 
-# MQTT (ThingsBoard)
-MQTT_ENABLED=true
-MQTT_HOST=your-thingsboard-host
-MQTT_PORT=1883
-MQTT_USER=your-device-token
+# MQTT
+MQTT_ENABLED=true               # Enable/disable MQTT (default: true)
+MQTT_PORT=1883                  # MQTT port (default: 1883)
+MQTT_USE_TLS=false              # Enable TLS (default: false)
 
-# NATS (optional)
+# NATS (alternative to MQTT)
 NATS_ENABLED=false
 NATS_URL=nats://localhost:4222
 ```
@@ -256,10 +283,11 @@ Normal for BLE. The gateway auto-reconnects with exponential backoff (max 2 minu
 ## Dependencies
 
 ```
-bleak>=0.21.0      # BLE communication
-paho-mqtt>=2.0.0   # MQTT client
-nats-py>=2.0.0     # NATS client (optional)
-nicegui>=2.0       # Dashboard (optional)
+bleak>=0.21.0         # BLE communication
+python-dotenv>=1.0.0  # Environment file loading
+paho-mqtt>=2.0.0      # MQTT client
+nats-py>=2.0.0        # NATS client (optional)
+nicegui>=2.0          # Dashboard (optional)
 ```
 
 ## License
