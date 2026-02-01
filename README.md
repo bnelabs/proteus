@@ -1,9 +1,13 @@
 # PROTEUS BLE Gateway
 
-A Python-based gateway for the **ST STEVAL-PROTEUS1** industrial vibration sensor. Connects via Bluetooth Low Energy (BLE), streams sensor data, calculates vibration health metrics, and detects anomalies using statistical baselines.
+A **cross-platform** Python gateway for the **ST STEVAL-PROTEUS1** industrial vibration sensor. Connects via Bluetooth Low Energy (BLE), streams sensor data, calculates vibration health metrics, and detects anomalies using statistical baselines.
+
+**Supports: Windows, macOS, Linux**
 
 ## Features
 
+- **Cross-Platform**: Works on Windows, macOS, and Linux
+- **Auto-Discovery**: Scans and finds PROTEUS devices automatically
 - **BLE Connection**: Auto-reconnect with exponential backoff
 - **Sensor Data Streaming**: Accelerometer, gyroscope, FFT, velocity RMS, temperature, pressure
 - **Vibration Analysis**:
@@ -17,12 +21,13 @@ A Python-based gateway for the **ST STEVAL-PROTEUS1** industrial vibration senso
 ## Hardware
 
 - **Sensor Board**: [STEVAL-PROTEUS1](https://www.st.com/en/evaluation-tools/steval-proteus1.html) (~$50 USD)
-- **Host**: Any computer with Bluetooth (tested on macOS, Linux)
+- **Host**: Any computer with Bluetooth (Windows 10+, macOS 10.15+, Linux with BlueZ)
 
 ## Quick Start
 
 ### 1. Install Dependencies
 
+**macOS/Linux:**
 ```bash
 cd proteus-gateway
 python3 -m venv venv
@@ -30,27 +35,57 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure (Optional)
+**Windows:**
+```cmd
+cd proteus-gateway
+python -m venv venv
+venv\Scripts\activate
+pip install -r requirements.txt
+```
 
-Copy `.env.example` to `.env` and edit:
+### 2. Find Your PROTEUS Device
 
 ```bash
-cp .env.example .env
-# Edit MQTT settings for ThingsBoard, etc.
+# Scan for BLE devices
+python proteus_gateway.py --scan
+```
+
+Output:
+```
+✓ PROTEUS DEVICES FOUND:
+  Name:    PROTEUS
+  Address: AA:BB:CC:DD:EE:FF   (Windows/Linux)
+           2402245D-06F8-...   (macOS)
 ```
 
 ### 3. Run Gateway
 
+**macOS** (usually auto-detects):
 ```bash
-# Basic usage (no anomaly detection)
 python proteus_gateway.py
-
-# With dashboard
-python proteus_gateway.py --dashboard
-
-# With anomaly detection (see below)
-python proteus_gateway.py --mode learn
 ```
+
+**Windows/Linux** (use discovered address):
+```bash
+python proteus_gateway.py --address AA:BB:CC:DD:EE:FF
+```
+
+**With anomaly detection:**
+```bash
+python proteus_gateway.py --address YOUR_ADDRESS --mode learn
+```
+
+## Platform Notes
+
+| Platform | Address Format | Example |
+|----------|----------------|---------|
+| **macOS** | UUID | `2402245D-06F8-8C06-6450-9C102D4D7CE6` |
+| **Windows** | MAC | `AA:BB:CC:DD:EE:FF` |
+| **Linux** | MAC | `AA:BB:CC:DD:EE:FF` |
+
+- **macOS**: Usually works out of the box with auto-discovery
+- **Windows**: Run `--scan` first to find your device's MAC address
+- **Linux**: May need BlueZ installed (`sudo apt install bluez`)
 
 ## Anomaly Detection
 
