@@ -83,12 +83,12 @@ CONFIG = {
     "nats_enabled": os.getenv("NATS_ENABLED", "false").lower() == "true",
     "nats_url": os.getenv("NATS_URL", "nats://localhost:4222"),
 
-    # ThingsBoard MQTT Connection (direct IP to bypass Cloudflare)
+    # ThingsBoard MQTT Connection
     "mqtt_enabled": os.getenv("MQTT_ENABLED", "true").lower() == "true",
-    "mqtt_host": os.getenv("MQTT_HOST", "YOUR_MQTT_HOST"),
-    "mqtt_port": int(os.getenv("MQTT_PORT", "31883")),
+    "mqtt_host": os.getenv("MQTT_HOST", ""),  # Required: set via env var
+    "mqtt_port": int(os.getenv("MQTT_PORT", "1883")),  # Default MQTT port
     "mqtt_use_tls": os.getenv("MQTT_USE_TLS", "false").lower() == "true",
-    "mqtt_user": os.getenv("MQTT_USER", "YOUR_TOKEN_HERE"),  # Device access token
+    "mqtt_user": os.getenv("MQTT_USER", ""),  # Device access token (required, set via env var)
     "mqtt_pass": os.getenv("MQTT_PASSWORD", ""),  # Empty for ThingsBoard
 
     # ThingsBoard telemetry topic
@@ -1076,6 +1076,14 @@ class ProteusGateway:
 
         if not MQTT_AVAILABLE:
             logger.error("MQTT enabled but paho-mqtt not installed. Install with: pip install paho-mqtt")
+            return False
+
+        if not CONFIG["mqtt_host"]:
+            logger.error("MQTT_HOST environment variable not set.")
+            return False
+
+        if not CONFIG["mqtt_user"]:
+            logger.error("MQTT_USER environment variable not set. Set your ThingsBoard device access token.")
             return False
 
         try:
