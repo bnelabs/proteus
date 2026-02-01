@@ -1,0 +1,40 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Environment
+.env
+.env.local
+
+# Logs
+*.log
+gateway.log
+
+# Test output
+test_output.txt
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Baseline (optional - you may want to commit this)
+# baseline.json
+
+# Temporary files
+*.tmp
+*.bak

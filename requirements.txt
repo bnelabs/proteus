@@ -1,0 +1,13 @@
+# PROTEUS BLE Gateway Dependencies
+
+# Core - Required
+bleak>=0.21.0
+
+# MQTT over WebSocket/TLS - Required for default configuration
+paho-mqtt>=2.0.0
+
+# NATS - Optional, install if using NATS
+nats-py>=2.0.0
+
+# Dashboard - Optional, install if using local dashboard
+nicegui>=2.0
